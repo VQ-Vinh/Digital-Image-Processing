@@ -16,6 +16,7 @@ from compare.metrics import format_psnr  # noqa: E402
 from src.config import DATA_DIR, FIG_DIR, TABLE_DIR  # noqa: E402
 from src.experiments import run_all_experiments  # noqa: E402
 from src.images import write_data_files  # noqa: E402
+from src.plotting import make_doc_copies  # noqa: E402
 from src.report import write_report  # noqa: E402
 
 
@@ -47,7 +48,8 @@ def main() -> None:
     cmp = run_comparison()
     print("[3/4] Phần đối chứng: Hinh7, Bang3")
     path = write_report(res, cmp)
-    print(f"[4/4] Ghi {path}")
+    make_doc_copies(FIG_DIR, FIG_DIR / "doc")
+    print(f"[4/4] Ghi {path} và bản JPEG nhẹ của các hình vào {FIG_DIR / 'doc'}")
     print_summary(res, cmp)
     print(f"\nHoàn tất sau {time.perf_counter() - t0:.1f} s.")
 

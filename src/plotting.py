@@ -52,6 +52,26 @@ def draw_box(ax: plt.Axes, x0: int, y0: int, w: int, h: int, color: str = "red")
     ax.add_patch(plt.Rectangle((x0 - 0.5, y0 - 0.5), w, h, fill=False, ec=color, lw=1.5))
 
 
+DOC_MAX_WIDTH_PX: int = 1800    # ≈ 290 dpi khi in rộng 15,9 cm
+DOC_JPEG_QUALITY: int = 90
+
+
+def make_doc_copies(fig_dir: Path, out_dir: Path) -> list[Path]:
+    """Tạo bản JPEG nhẹ của các hình để chèn vào báo cáo Google Docs (giới hạn xuất 10 MB)."""
+    from PIL import Image
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for src in sorted(fig_dir.glob("Hinh*.png")):
+        img = Image.open(src).convert("RGB")
+        if img.width > DOC_MAX_WIDTH_PX:
+            img = img.resize((DOC_MAX_WIDTH_PX, round(img.height * DOC_MAX_WIDTH_PX / img.width)), Image.LANCZOS)
+        dst = out_dir / f"{src.stem}.jpg"
+        img.save(dst, quality=DOC_JPEG_QUALITY, optimize=True)
+        paths.append(dst)
+    return paths
+
+
 def save_figure(fig: plt.Figure, path: Path) -> Path:
     """Lưu hình ra PNG (DPI 200, nền trắng) rồi đóng hình."""
     path.parent.mkdir(parents=True, exist_ok=True)

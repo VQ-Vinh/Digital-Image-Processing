@@ -3,6 +3,7 @@ opencv-python==4.10.0.84
 numpy==2.5.4
 matplotlib==3.11.2
 scikit-image==0.26.0   # chỉ dùng skimage.data (ảnh camera, astronaut, coffee)
+pillow==13.0.0   # tạo bản JPEG nhẹ của hình cho báo cáo
 psutil==7.2.2          # đọc cấu hình máy cho report_numbers.md
 pytest==9.1.1
 # Chạy notebook demo/demo.ipynb
