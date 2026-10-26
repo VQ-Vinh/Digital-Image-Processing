@@ -17,7 +17,7 @@ from reference import warp_ref as RW
 from src import images
 from src.config import BENCH_REPEAT, BENCH_WARMUP, FIG_DIR, SEED
 from src.experiments import AFFINE_DST, AFFINE_SRC, PERSP_DST, PERSP_SRC
-from src.plotting import save_figure, setup_style, show_image
+from src.plotting import FIG_W_2X2, FIG_W_FULL, PANEL_TITLE_SIZE, panel_grid, save_panels, setup_style, show_image
 from src.tables import write_table
 
 INTERP_CV: dict[str, int] = {"nearest": cv2.INTER_NEAREST, "linear": cv2.INTER_LINEAR,
@@ -188,23 +188,45 @@ def run_cases(cases: list[Case]) -> None:
 
 
 # ------------------------------------------------------------------ Hình 7, Bảng 3
-def make_hinh7(cases: list[Case], out_dir: Path = FIG_DIR) -> Path:
-    """Hình 7: ảnh tự cài đặt, ảnh OpenCV, ảnh hiệu cho resize ×4, xoay 45°, phối cảnh (bilinear)."""
-    shown = [c for c in cases if c.name != "affine 3 điểm"]
-    fig, axes = plt.subplots(len(shown), 3, figsize=(13, 4.3 * len(shown)))
-    for row, case in zip(axes, shown):
-        r = case.results[FIG7_INTERP]
-        show_image(row[0], r["ref"], f"Tự cài đặt (NumPy): {case.name}\n{INTERP_LABEL[FIG7_INTERP]}, {case.io_size}")
-        show_image(row[1], r["cv"], f"OpenCV: {case.name}\nINTER_LINEAR")
-        im = row[2].imshow(abs_diff(r["ref"], r["cv"]), cmap="inferno", vmin=0, vmax=DIFF_VMAX,
-                           interpolation="nearest")
-        row[2].set_xticks([])
-        row[2].set_yticks([])
-        row[2].set_title(f"Ảnh hiệu |tự cài đặt − OpenCV| (thang 0–{DIFF_VMAX:g})\n"
-                         f"PSNR = {format_psnr(r['psnr'])} dB, lệch >1: {r['pct']:.3f}%, max = {r['max']:.0f}")
-        fig.colorbar(im, ax=row[2], fraction=0.046, pad=0.03, label="mức xám")
-    fig.tight_layout()
-    return save_figure(fig, out_dir / "Hinh7.png")
+def _diff_panel(fig: plt.Figure, ax: plt.Axes, a: np.ndarray, b: np.ndarray, title: str) -> None:
+    """Ô ảnh hiệu |a − b| phóng đại tương phản (thang 0–DIFF_VMAX mức xám) kèm thanh màu."""
+    im = ax.imshow(abs_diff(a, b), cmap="inferno", vmin=0, vmax=DIFF_VMAX, interpolation="nearest")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_title(title)
+    cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.02)
+    cb.ax.tick_params(labelsize=PANEL_TITLE_SIZE - 1)
+
+
+def make_hinh7(cases: list[Case], out_dir: Path = FIG_DIR) -> list[Path]:
+    """Hình 7a (2×3): resize ×4 và xoay 45°; Hình 7b (2×2): phối cảnh và kiểm chứng lượng tử 1/32 px."""
+    rows_7a = [c for c in cases if c.name.startswith(("resize", "xoay"))]
+    persp = next(c for c in cases if c.name.startswith("phối cảnh"))
+    paths = []
+    with plt.rc_context({"axes.titlesize": PANEL_TITLE_SIZE}):
+        fig, axes = panel_grid(2, 3, FIG_W_FULL, 1.0)
+        for row, case in zip(axes, rows_7a):
+            r = case.results[FIG7_INTERP]
+            show_image(row[0], r["ref"], f"Tự cài đặt: {case.name}\n{INTERP_LABEL[FIG7_INTERP]}, {case.io_size}")
+            show_image(row[1], r["cv"], f"OpenCV: {case.name}\nINTER_LINEAR")
+            _diff_panel(fig, row[2], r["ref"], r["cv"], f"|Hiệu| (0–{DIFF_VMAX:g}), PSNR {format_psnr(r['psnr'])} dB\n"
+                        f"lệch >1: {r['pct']:.3f}%, max = {r['max']:.0f}")
+        paths.append(save_panels(fig, out_dir, "Hinh7a"))
+
+        cam = images.load_camera()
+        size = (cam.shape[1], cam.shape[0])
+        h = cv2.getPerspectiveTransform(np.float32(PERSP_SRC), np.float32(PERSP_DST))
+        q32 = RW.warp_perspective_ref(cam, h, size, FIG7_INTERP, coord_bits=OPENCV_INTER_BITS)
+        r = persp.results[FIG7_INTERP]
+        fig, axes = panel_grid(2, 2, FIG_W_2X2, 1.0)
+        show_image(axes[0, 0], r["ref"], f"Tự cài đặt: {persp.name}\n{INTERP_LABEL[FIG7_INTERP]}")
+        show_image(axes[0, 1], r["cv"], f"OpenCV: {persp.name}\nINTER_LINEAR")
+        _diff_panel(fig, axes[1, 0], r["ref"], r["cv"],
+                    f"|Hiệu|, tọa độ float64\nPSNR {format_psnr(r['psnr'])} dB")
+        _diff_panel(fig, axes[1, 1], q32, r["cv"],
+                    f"|Hiệu|, tọa độ lượng tử 1/32 px\nPSNR {format_psnr(psnr(q32, r['cv']))} dB")
+        paths.append(save_panels(fig, out_dir, "Hinh7b"))
+    return paths
 
 
 BANG3_HEADER: list[str] = ["Phép biến đổi", "Kích thước", "Nội suy", "PSNR (dB)", "Pixel lệch >1 (%)",
@@ -244,11 +266,11 @@ def run_comparison() -> dict[str, Any]:
                    "homography": homography_error(rng)}
     cases = build_cases()
     run_cases(cases)
-    fig_path = make_hinh7(cases)
+    fig_paths = make_hinh7(cases)
     table_paths = make_bang3(cases, matrix_errs)
     summary = {c.name: {it: {k: v for k, v in r.items() if k not in ("ref", "cv")}
                         for it, r in c.results.items()} for c in cases}
-    return {"Hinh7": {"path": fig_path}, "Bang3": {"paths": table_paths, "cases": summary,
+    return {"Hinh7": {"paths": fig_paths}, "Bang3": {"paths": table_paths, "cases": summary,
                                                     "matrix_errs": matrix_errs,
                                                     "case_matrix_errs": {c.name: c.matrix_err for c in cases}},
             "quantization": quantized_psnr()}

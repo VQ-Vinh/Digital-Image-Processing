@@ -10,6 +10,12 @@ from src.config import FIG_DPI, FIG_FONT, TITLE_FONTSIZE
 
 MARKER_COLORS: tuple[str, ...] = ("#e41a1c", "#377eb8", "#4daf4a", "#ff7f00")
 
+# Hình ghép 4–6 ô được vẽ đúng kích thước khi in để chữ trong hình đọc được.
+FIG_W_FULL: float = 6.3        # lưới 2×3 rộng bằng khổ chữ A4 (16 cm)
+FIG_W_2X2: float = 5.0         # lưới 2×2 (12,7 cm)
+TITLE_SPACE_IN: float = 0.42   # chỗ cho tiêu đề 2 dòng phía trên mỗi ô
+PANEL_TITLE_SIZE: int = 8
+
 
 def setup_style() -> None:
     """Đặt cấu hình matplotlib chung cho mọi hình."""
@@ -22,6 +28,20 @@ def setup_style() -> None:
         "axes.titlesize": TITLE_FONTSIZE,
         "figure.titlesize": TITLE_FONTSIZE + 3,
     })
+
+
+def panel_grid(nrow: int, ncol: int, width: float, panel_aspect: float) -> tuple[plt.Figure, np.ndarray]:
+    """Lưới nrow×ncol ô ảnh, rộng ``width`` inch; panel_aspect = cao/rộng của mỗi ô ảnh."""
+    panel_w = width / ncol
+    height = nrow * (panel_w * panel_aspect + TITLE_SPACE_IN)
+    fig, axes = plt.subplots(nrow, ncol, figsize=(width, height), squeeze=False)
+    return fig, axes
+
+
+def save_panels(fig: plt.Figure, out_dir: Path, name: str) -> Path:
+    """Căn lề gọn rồi lưu hình ghép ra ``<name>.png``."""
+    fig.tight_layout(pad=0.3, h_pad=0.6, w_pad=0.4)
+    return save_figure(fig, out_dir / f"{name}.png")
 
 
 def show_image(ax: plt.Axes, img: np.ndarray, title: str, vmin: float = 0, vmax: float = 255,
@@ -37,13 +57,14 @@ def show_image(ax: plt.Axes, img: np.ndarray, title: str, vmin: float = 0, vmax:
     ax.set_yticks([])
 
 
-def draw_points(ax: plt.Axes, pts: np.ndarray, prefix: str, marker: str = "o") -> None:
+def draw_points(ax: plt.Axes, pts: np.ndarray, prefix: str, marker: str = "o",
+                fontsize: int = TITLE_FONTSIZE) -> None:
     """Đánh dấu các điểm (N, 2) kèm nhãn prefix1, prefix2, ..."""
     for i, (x, y) in enumerate(pts):
         color = MARKER_COLORS[i % len(MARKER_COLORS)]
-        ax.plot(x, y, marker, ms=9, mfc=color, mec="white", mew=1.5)
-        ax.annotate(f"{prefix}{i + 1}", (x, y), xytext=(6, -8), textcoords="offset points",
-                    color="white", fontsize=TITLE_FONTSIZE, fontweight="bold",
+        ax.plot(x, y, marker, ms=fontsize - 1, mfc=color, mec="white", mew=1.2)
+        ax.annotate(f"{prefix}{i + 1}", (x, y), xytext=(5, -7), textcoords="offset points",
+                    color="white", fontsize=fontsize, fontweight="bold",
                     bbox={"boxstyle": "round,pad=0.15", "fc": color, "ec": "none"})
 
 

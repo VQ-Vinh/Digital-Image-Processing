@@ -13,12 +13,13 @@ import numpy as np
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
 from compare.benchmark import benchmark
-from compare.metrics import format_psnr, psnr
+from compare.metrics import abs_diff, format_psnr, psnr
 from src import app_document as doc
 from src import images
 from src import transforms as T
 from src.config import BENCH_REPEAT, BENCH_WARMUP, FIG_DIR, SIZE_LARGE, SIZE_SMALL, TITLE_FONTSIZE
-from src.plotting import draw_box, draw_points, save_figure, setup_style, show_image
+from src.plotting import (FIG_W_2X2, FIG_W_FULL, PANEL_TITLE_SIZE, draw_points, panel_grid, save_figure,
+                          save_panels, setup_style, show_image)
 from src.tables import write_table
 
 # ---------------------------------------------------------------- Hình 2: co giãn
@@ -54,7 +55,12 @@ BANG2_FLAGS: tuple[tuple[str, int, int], ...] = (
     ("INTER_AREA ↓ + INTER_CUBIC ↑", cv2.INTER_AREA, cv2.INTER_CUBIC),
 )
 
-CELL_IN: float = 2.9   # cạnh mỗi ô hình (inch)
+CELL_IN: float = 2.9   # cạnh mỗi ô hình (inch), dùng cho Hình 1
+
+COFFEE_PANEL_ASPECT: float = 0.72   # ảnh coffee 600×400 (cao/rộng 0,67) cộng lề
+DOC_PANEL_ASPECT: float = 0.95
+DOC_DIFF_VMAX: int = 64        # thang ảnh hiệu của ứng dụng tài liệu (mức xám)
+MAX_REAL_DOCS: int = 3
 
 
 def _flag(f: int) -> str:
@@ -114,7 +120,7 @@ def make_hinh1(out_dir: Path = FIG_DIR) -> dict[str, Any]:
     ax.text(10.4, 1.05, "nhánh phụ: đối chứng", ha="center", fontsize=TITLE_FONTSIZE - 1, color=ref_ec,
             style="italic")
     path = save_figure(fig, out_dir / "Hinh1.png")
-    return {"path": path}
+    return {"paths": [path]}
 
 
 # ============================================================== Hình 2
@@ -141,7 +147,7 @@ def _alias_std(img: np.ndarray, factor: float) -> float:
 
 
 def make_hinh2(out_dir: Path = FIG_DIR) -> dict[str, Any]:
-    """Hình 2: phóng to ×4 (so sánh 5 cờ, có vùng phóng lớn) và thu nhỏ ×0.25 (moiré, răng cưa)."""
+    """Hình 2a–2c: phóng to ×4 (vùng cắt phóng lớn), thu nhỏ ×0.25 trên zone plate (moiré) và ảnh chữ."""
     cam = images.load_camera()
     small = T.resize_to(cam, (cam.shape[1] // UP_FACTOR, cam.shape[0] // UP_FACTOR), cv2.INTER_AREA)
     ups = {f: T.scale(small, UP_FACTOR, interp=f) for f in UPSCALE_FLAGS}
@@ -152,28 +158,26 @@ def make_hinh2(out_dir: Path = FIG_DIR) -> dict[str, Any]:
     downs_txt = {f: T.scale(txt, DOWN_FACTOR, interp=f) for f in DOWNSCALE_FLAGS}
     alias = {_flag(f): _alias_std(d, DOWN_FACTOR) for f, d in downs_zp.items()}
 
-    ncol = 1 + len(UPSCALE_FLAGS)
-    fig, axes = plt.subplots(4, ncol, figsize=(CELL_IN * ncol, CELL_IN * 4 + 0.6))
-    show_image(axes[0, 0], small, f"Ảnh vào {small.shape[1]}×{small.shape[0]}\n(camera thu nhỏ, INTER_AREA)")
-    show_image(axes[1, 0], _zoom(cam), "Vùng cắt của ảnh gốc 512×512\n(tham chiếu)")
-    draw_box(axes[0, 0], *(v // UP_FACTOR for v in ZOOM_BOX))
-    for i, (f, u) in enumerate(ups.items(), start=1):
-        show_image(axes[0, i], u, f"resize ×{UP_FACTOR}, {_flag(f)}\nPSNR = {format_psnr(up_psnr[_flag(f)])} dB")
-        draw_box(axes[0, i], *ZOOM_BOX)
-        show_image(axes[1, i], _zoom(u), f"Phóng lớn vùng khung đỏ\n{_flag(f)}")
-    show_image(axes[2, 0], zp, f"Zone plate {zp.shape[1]}×{zp.shape[0]}")
-    show_image(axes[3, 0], txt, f"Ảnh chữ {txt.shape[1]}×{txt.shape[0]}")
-    for i, f in enumerate(DOWNSCALE_FLAGS, start=1):
-        show_image(axes[2, i], downs_zp[f], f"resize ×{DOWN_FACTOR:g}, {_flag(f)}\n"
-                   f"độ lệch chuẩn vùng > Nyquist = {alias[_flag(f)]:.1f}")
-        show_image(axes[3, i], downs_txt[f], f"resize ×{DOWN_FACTOR:g}, {_flag(f)}")
-    row_titles = (f"Phóng to ×{UP_FACTOR}", "Vùng cắt phóng lớn", f"Thu nhỏ ×{DOWN_FACTOR:g}: moiré",
-                  f"Thu nhỏ ×{DOWN_FACTOR:g}: răng cưa")
-    for ax, t in zip(axes[:, 0], row_titles):
-        ax.set_ylabel(t, fontsize=TITLE_FONTSIZE + 1, fontweight="bold")
-    fig.tight_layout()
-    path = save_figure(fig, out_dir / "Hinh2.png")
-    return {"path": path, "up_psnr": up_psnr, "alias_std": alias,
+    paths = []
+    with plt.rc_context({"axes.titlesize": PANEL_TITLE_SIZE}):
+        fig, axes = panel_grid(2, 3, FIG_W_FULL, 1.0)
+        show_image(axes.flat[0], _zoom(cam), "Ảnh gốc 512×512 (tham chiếu)")
+        for ax, (f, u) in zip(axes.flat[1:], ups.items()):
+            show_image(ax, _zoom(u), f"{_flag(f)}, PSNR = {format_psnr(up_psnr[_flag(f)])} dB")
+        paths.append(save_panels(fig, out_dir, "Hinh2a"))
+
+        fig, axes = panel_grid(2, 3, FIG_W_FULL, 1.0)
+        show_image(axes.flat[0], zp, f"Zone plate gốc {zp.shape[1]}×{zp.shape[0]}")
+        for ax, f in zip(axes.flat[1:], DOWNSCALE_FLAGS):
+            show_image(ax, downs_zp[f], f"{_flag(f)}\nđộ lệch chuẩn > Nyquist = {alias[_flag(f)]:.1f}")
+        paths.append(save_panels(fig, out_dir, "Hinh2b"))
+
+        fig, axes = panel_grid(2, 3, FIG_W_FULL, 1.0)
+        show_image(axes.flat[0], txt, f"Ảnh chữ gốc {txt.shape[1]}×{txt.shape[0]}")
+        for ax, f in zip(axes.flat[1:], DOWNSCALE_FLAGS):
+            show_image(ax, downs_txt[f], f"{_flag(f)}, ×{DOWN_FACTOR:g}")
+        paths.append(save_panels(fig, out_dir, "Hinh2c"))
+    return {"paths": paths, "up_psnr": up_psnr, "alias_std": alias,
             "small_size": small.shape[::-1], "zoom_box": ZOOM_BOX}
 
 
@@ -188,95 +192,88 @@ def _kept_ratio(size: tuple[int, int], m: np.ndarray, out_size: tuple[int, int])
 
 
 def make_hinh3(out_dir: Path = FIG_DIR) -> dict[str, Any]:
-    """Hình 3: tịnh tiến; xoay giữ khung / mở rộng khung; so sánh các borderMode."""
+    """Hình 3a–3c: xoay giữ / mở rộng khung; tịnh tiến và lỗi quên bù tịnh tiến; các borderMode."""
     img = images.load_coffee()
     size = T.image_size(img)
-    ncol = 5
-    fig, axes = plt.subplots(3, ncol, figsize=(CELL_IN * 1.15 * ncol, CELL_IN * 3 + 0.8))
     kept_keep, sizes_expand = {}, {}
+    paths = []
+    with plt.rc_context({"axes.titlesize": PANEL_TITLE_SIZE}):
+        fig, axes = panel_grid(2, 3, FIG_W_FULL, COFFEE_PANEL_ASPECT)
+        for i, a in enumerate(ANGLES):
+            m, out_size = T.rotation_matrix(size, a, expand=False)
+            kept_keep[a] = _kept_ratio(size, m, out_size)
+            show_image(axes[0, i], T.rotate(img, a),
+                       f"Xoay {a:g}°, giữ khung {out_size[0]}×{out_size[1]}\ncòn {kept_keep[a]:.1f}% ảnh gốc")
+            m, out_size = T.rotation_matrix(size, a, expand=True)
+            sizes_expand[a] = out_size
+            show_image(axes[1, i], T.rotate(img, a, expand=True),
+                       f"Xoay {a:g}°, mở rộng khung {out_size[0]}×{out_size[1]}\n"
+                       f"còn {_kept_ratio(size, m, out_size):.1f}% ảnh gốc")
+        paths.append(save_panels(fig, out_dir, "Hinh3a"))
 
-    show_image(axes[0, 0], img, f"Ảnh gốc {size[0]}×{size[1]}")
-    shifted = T.translate(img, *SHIFT)
-    kept_shift = _kept_ratio(size, T.translation_matrix(*SHIFT), size)
-    show_image(axes[0, 1], shifted, f"Tịnh tiến tx={SHIFT[0]}, ty={SHIFT[1]}\nwarpAffine, BORDER_CONSTANT")
-    for i, a in enumerate(ANGLES, start=2):
-        m, out_size = T.rotation_matrix(size, a, expand=False)
-        kept_keep[a] = _kept_ratio(size, m, out_size)
-        show_image(axes[0, i], T.rotate(img, a), f"Xoay {a:g}°, giữ khung {out_size[0]}×{out_size[1]}\n"
-                   f"còn {kept_keep[a]:.1f}% ảnh gốc")
+        fig, axes = panel_grid(2, 2, FIG_W_2X2, COFFEE_PANEL_ASPECT)
+        kept_shift = _kept_ratio(size, T.translation_matrix(*SHIFT), size)
+        show_image(axes[0, 0], img, f"Ảnh gốc {size[0]}×{size[1]}")
+        show_image(axes[0, 1], T.translate(img, *SHIFT),
+                   f"Tịnh tiến tx = {SHIFT[0]}, ty = {SHIFT[1]}\ncòn {kept_shift:.1f}% ảnh gốc")
+        # Lỗi thường gặp: tính khung mới nhưng quên cộng bù tịnh tiến.
+        a = ANGLES[1]
+        m_wrong, _ = T.rotation_matrix(size, a, expand=False)
+        out_size = T.expanded_size(size, a)
+        show_image(axes[1, 0], cv2.warpAffine(img, m_wrong, out_size),
+                   f"Xoay {a:g}°, khung {out_size[0]}×{out_size[1]}\nKHÔNG cộng bù tịnh tiến")
+        show_image(axes[1, 1], T.rotate(img, a, expand=True),
+                   f"Xoay {a:g}°, khung {out_size[0]}×{out_size[1]}\ncó cộng bù tịnh tiến")
+        paths.append(save_panels(fig, out_dir, "Hinh3b"))
 
-    # Lỗi thường gặp: tính khung mới nhưng quên cộng bù tịnh tiến.
-    m_wrong, _ = T.rotation_matrix(size, ANGLES[1], expand=False)
-    wrong_size = T.expanded_size(size, ANGLES[1])
-    show_image(axes[1, 0], cv2.warpAffine(img, m_wrong, wrong_size),
-               f"Xoay {ANGLES[1]:g}°, khung {wrong_size[0]}×{wrong_size[1]}\nnhưng KHÔNG cộng bù tịnh tiến")
-    for i, a in enumerate(ANGLES, start=1):
-        m, out_size = T.rotation_matrix(size, a, expand=True)
-        sizes_expand[a] = out_size
-        show_image(axes[1, i], T.rotate(img, a, expand=True),
-                   f"Xoay {a:g}°, mở rộng khung {out_size[0]}×{out_size[1]}\ncòn {_kept_ratio(size, m, out_size):.1f}%"
-                   " ảnh gốc")
-    formula = ("Khung mở rộng:\nw' = ⌈w|cosθ| + h|sinθ|⌉\nh' = ⌈w|sinθ| + h|cosθ|⌉\n\nBù tịnh tiến:\n"
-               "M[0,2] += (w'−1)/2 − (w−1)/2\nM[1,2] += (h'−1)/2 − (h−1)/2\n\n"
-               + "\n".join(f"θ = {a:g}°: {s[0]}×{s[1]}" for a, s in sizes_expand.items()))
-    axes[1, 4].axis("off")
-    axes[1, 4].text(0.02, 0.5, formula, va="center", fontsize=TITLE_FONTSIZE, family="DejaVu Sans",
-                    bbox={"boxstyle": "round", "fc": "#f5f5f5", "ec": "#999999"})
-
-    for i, b in enumerate(BORDER_FLAGS):
-        out = T.rotate(img, BORDER_DEMO_ANGLE, BORDER_DEMO_SCALE, border=b)
-        show_image(axes[2, i], out, f"Xoay {BORDER_DEMO_ANGLE:g}°, scale={BORDER_DEMO_SCALE}\n{T.BORDER_NAME[b]}")
-    row_titles = ("Giữ khung (INTER_LINEAR)", "Mở rộng khung (INTER_LINEAR)", "Chế độ biên (INTER_LINEAR)")
-    for ax, t in zip(axes[:, 0], row_titles):
-        ax.set_ylabel(t, fontsize=TITLE_FONTSIZE + 1, fontweight="bold")
-    fig.tight_layout()
-    path = save_figure(fig, out_dir / "Hinh3.png")
-    return {"path": path, "size": size, "kept_shift": kept_shift, "kept_keep": kept_keep,
+        fig, axes = panel_grid(2, 3, FIG_W_FULL, COFFEE_PANEL_ASPECT)
+        show_image(axes.flat[0], img, f"Ảnh gốc {size[0]}×{size[1]}")
+        for ax, b in zip(axes.flat[1:], BORDER_FLAGS):
+            show_image(ax, T.rotate(img, BORDER_DEMO_ANGLE, BORDER_DEMO_SCALE, border=b),
+                       f"{T.BORDER_NAME[b]}\nxoay {BORDER_DEMO_ANGLE:g}°, scale = {BORDER_DEMO_SCALE}")
+        paths.append(save_panels(fig, out_dir, "Hinh3c"))
+    return {"paths": paths, "size": size, "kept_shift": kept_shift, "kept_keep": kept_keep,
             "sizes_expand": sizes_expand}
 
 
 # ============================================================== Hình 4, 5
+def _four_panels(img: np.ndarray, out: np.ndarray, board: np.ndarray, board_out: np.ndarray,
+                 src: np.ndarray, dst: np.ndarray, titles: tuple[str, str, str, str], name: str,
+                 out_dir: Path) -> Path:
+    """Lưới 2×2: ảnh gốc / ảnh sau biến đổi (hàng 1), bàn cờ gốc / bàn cờ sau biến đổi (hàng 2)."""
+    with plt.rc_context({"axes.titlesize": PANEL_TITLE_SIZE}):
+        fig, axes = panel_grid(2, 2, FIG_W_2X2, 1.0)
+        for ax, im, pts, prefix, title in zip(axes.flat, (img, out, board, board_out), (src, dst, src, dst),
+                                              "PQPQ", titles):
+            show_image(ax, im, title)
+            draw_points(ax, pts, prefix, fontsize=PANEL_TITLE_SIZE)
+        return save_panels(fig, out_dir, name)
+
+
 def make_hinh4(out_dir: Path = FIG_DIR) -> dict[str, Any]:
-    """Hình 4: affine xác định bởi 3 cặp điểm (ảnh màu và bàn cờ)."""
+    """Hình 4: affine xác định bởi 3 cặp điểm (ảnh màu và bàn cờ), lưới 2×2."""
     img, board = images.load_astronaut(), images.make_checkerboard()
     out, m = T.affine_3pts(img, AFFINE_SRC, AFFINE_DST)
     board_out, _ = T.affine_3pts(board, AFFINE_SRC, AFFINE_DST)
     err = float(np.abs(T.apply_affine_to_points(m, AFFINE_SRC) - AFFINE_DST).max())
-    fig, axes = plt.subplots(1, 4, figsize=(CELL_IN * 1.3 * 4, CELL_IN * 1.3 + 0.9))
-    show_image(axes[0], img, "Ảnh gốc, 3 điểm nguồn P1–P3")
-    draw_points(axes[0], AFFINE_SRC, "P")
-    show_image(axes[1], out, "warpAffine(M), INTER_LINEAR\n3 điểm đích Q1–Q3")
-    draw_points(axes[1], AFFINE_DST, "Q")
-    show_image(axes[2], board, "Bàn cờ gốc, P1–P3")
-    draw_points(axes[2], AFFINE_SRC, "P")
-    show_image(axes[3], board_out, "Bàn cờ sau affine: đường song song\nvẫn song song")
-    draw_points(axes[3], AFFINE_DST, "Q")
-    fig.tight_layout()
-    path = save_figure(fig, out_dir / "Hinh4.png")
-    return {"path": path, "matrix": m, "point_err": err, "det": float(np.linalg.det(m[:, :2]))}
+    path = _four_panels(img, out, board, board_out, AFFINE_SRC, AFFINE_DST,
+                        ("Ảnh gốc, 3 điểm nguồn P1–P3", "warpAffine, INTER_LINEAR, điểm đích Q1–Q3",
+                         "Bàn cờ gốc", "Bàn cờ sau affine: song song vẫn song song"), "Hinh4", out_dir)
+    return {"paths": [path], "matrix": m, "point_err": err, "det": float(np.linalg.det(m[:, :2]))}
 
 
 def make_hinh5(out_dir: Path = FIG_DIR) -> dict[str, Any]:
-    """Hình 5: phối cảnh xác định bởi 4 cặp điểm (ảnh màu và bàn cờ)."""
+    """Hình 5: phối cảnh xác định bởi 4 cặp điểm (ảnh màu và bàn cờ), lưới 2×2."""
     img, board = images.load_astronaut(), images.make_checkerboard()
     out, h = T.perspective_4pts(img, PERSP_SRC, PERSP_DST)
     board_out, _ = T.perspective_4pts(board, PERSP_SRC, PERSP_DST)
     err = float(np.abs(T.apply_homography_to_points(h, PERSP_SRC) - PERSP_DST).max())
     top_len = np.linalg.norm(PERSP_DST[1] - PERSP_DST[0])
     bottom_len = np.linalg.norm(PERSP_DST[2] - PERSP_DST[3])
-    fig, axes = plt.subplots(1, 4, figsize=(CELL_IN * 1.3 * 4, CELL_IN * 1.3 + 0.9))
-    show_image(axes[0], img, "Ảnh gốc, 4 điểm nguồn P1–P4")
-    draw_points(axes[0], PERSP_SRC, "P")
-    show_image(axes[1], out, "warpPerspective(H), INTER_LINEAR\n4 điểm đích Q1–Q4")
-    draw_points(axes[1], PERSP_DST, "Q")
-    show_image(axes[2], board, "Bàn cờ gốc, P1–P4")
-    draw_points(axes[2], PERSP_SRC, "P")
-    show_image(axes[3], board_out, "Bàn cờ sau phối cảnh: đường thẳng\ngiữ thẳng, song song không còn")
-    draw_points(axes[3], PERSP_DST, "Q")
-    fig.tight_layout()
-    path = save_figure(fig, out_dir / "Hinh5.png")
-    return {"path": path, "matrix": h, "point_err": err,
-            "edge_ratio": float(bottom_len / top_len)}
+    path = _four_panels(img, out, board, board_out, PERSP_SRC, PERSP_DST,
+                        ("Ảnh gốc, 4 điểm nguồn P1–P4", "warpPerspective, INTER_LINEAR, điểm đích Q1–Q4",
+                         "Bàn cờ gốc", "Bàn cờ sau phối cảnh: song song không còn"), "Hinh5", out_dir)
+    return {"paths": [path], "matrix": h, "point_err": err, "edge_ratio": float(bottom_len / top_len)}
 
 
 # ============================================================== Hình 6
@@ -285,8 +282,31 @@ def _real_document_files() -> list[Path]:
     return sorted(p for ext in ("jpg", "jpeg", "png") for p in images.DATA_DIR.glob(f"doc_real*.{ext}"))
 
 
+def _make_hinh6_real(real: list[Path], out_dir: Path) -> tuple[Path | None, list[dict[str, Any]]]:
+    """Hình 6b (chỉ khi có ảnh thật): mỗi hàng là ảnh chụp và ảnh sau nắn chỉnh, tối đa 3 hàng."""
+    if not real:
+        return None, []
+    real = real[:MAX_REAL_DOCS]
+    info = []
+    with plt.rc_context({"axes.titlesize": PANEL_TITLE_SIZE}):
+        fig, axes = panel_grid(len(real), 2, FIG_W_2X2, DOC_PANEL_ASPECT)
+        for row, path in zip(axes, real):
+            photo = images.read_rgb(path)
+            c = doc.detect_corners_auto(photo)
+            show_image(row[0], photo, f"Ảnh thật: {path.name}", smooth=True)
+            if c is None:
+                row[1].axis("off")
+                row[1].text(0.5, 0.5, "Không tự tìm được 4 góc\n(dùng demo_document.py để click)", ha="center")
+            else:
+                draw_points(row[0], c, "C", fontsize=PANEL_TITLE_SIZE)
+                out, _ = doc.rectify(photo, c)
+                show_image(row[1], out, f"Sau nắn chỉnh {out.shape[1]}×{out.shape[0]}", smooth=True)
+            info.append({"file": path.name, "found": c is not None})
+        return save_panels(fig, out_dir, "Hinh6b"), info
+
+
 def make_hinh6(out_dir: Path = FIG_DIR) -> dict[str, Any]:
-    """Hình 6: nắn chỉnh ảnh tài liệu chụp nghiêng (tự tìm 4 góc + warpPerspective)."""
+    """Hình 6: nắn chỉnh ảnh tài liệu chụp nghiêng, lưới 2×2 (ảnh chụp, sau nắn, tham chiếu, ảnh hiệu)."""
     sd = images.make_synthetic_document()
     flat_size = T.image_size(sd.flat)
     corners = doc.detect_corners_auto(sd.photo)
@@ -300,31 +320,25 @@ def make_hinh6(out_dir: Path = FIG_DIR) -> dict[str, Any]:
            "psnr_true": psnr(rect_true, sd.flat), "t_rectify_ms": t.mean_ms,
            "t_detect_ms": t_detect.mean_ms, "photo_size": T.image_size(sd.photo), "out_size": flat_size}
 
-    real = _real_document_files()
-    nrow = 1 + len(real)
-    fig, axes = plt.subplots(nrow, 3, figsize=(CELL_IN * 1.5 * 3, CELL_IN * 1.5 * nrow + 0.6), squeeze=False)
-    show_image(axes[0, 0], sd.photo, f"Ảnh chụp nghiêng (tổng hợp) {res['photo_size'][0]}×{res['photo_size'][1]}"
-               f"\n4 góc tự tìm, sai số TB {res['corner_err']:.2f} px", smooth=True)
-    draw_points(axes[0, 0], corners, "C")
-    show_image(axes[0, 1], rect_auto, f"Sau nắn chỉnh {flat_size[0]}×{flat_size[1]}\nwarpPerspective, INTER_CUBIC",
-               smooth=True)
-    show_image(axes[0, 2], sd.flat, "Trang tài liệu gốc (tham chiếu)", smooth=True)
-    res["real"] = []
-    for r, path in enumerate(real, start=1):
-        photo = images.read_rgb(path)
-        c = doc.detect_corners_auto(photo)
-        show_image(axes[r, 0], photo, f"Ảnh thật: {path.name}", smooth=True)
-        if c is None:
-            axes[r, 1].axis("off")
-            axes[r, 1].text(0.5, 0.5, "Không tự tìm được 4 góc\n(dùng demo_document.py để click)", ha="center")
-        else:
-            draw_points(axes[r, 0], c, "C")
-            out, _ = doc.rectify(photo, c)
-            show_image(axes[r, 1], out, f"Sau nắn chỉnh {out.shape[1]}×{out.shape[0]}", smooth=True)
-        axes[r, 2].axis("off")
-        res["real"].append({"file": path.name, "found": c is not None})
-    fig.tight_layout()
-    res["path"] = save_figure(fig, out_dir / "Hinh6.png")
+    with plt.rc_context({"axes.titlesize": PANEL_TITLE_SIZE}):
+        fig, axes = panel_grid(2, 2, FIG_W_2X2, DOC_PANEL_ASPECT)
+        show_image(axes[0, 0], sd.photo, f"Ảnh chụp nghiêng {res['photo_size'][0]}×{res['photo_size'][1]}\n"
+                   f"4 góc tự tìm, sai số TB {res['corner_err']:.2f} px", smooth=True)
+        draw_points(axes[0, 0], corners, "C", fontsize=PANEL_TITLE_SIZE)
+        show_image(axes[0, 1], rect_auto, f"Sau nắn chỉnh {flat_size[0]}×{flat_size[1]}\n"
+                   "warpPerspective, INTER_CUBIC", smooth=True)
+        show_image(axes[1, 0], sd.flat, "Trang tài liệu gốc (tham chiếu)", smooth=True)
+        diff = abs_diff(rect_auto, sd.flat)
+        axes[1, 1].imshow(diff, cmap="magma", vmin=0, vmax=DOC_DIFF_VMAX)
+        axes[1, 1].set_xticks([])
+        axes[1, 1].set_yticks([])
+        axes[1, 1].set_title(f"|Sau nắn − tham chiếu| (thang 0–{DOC_DIFF_VMAX})\n"
+                             f"PSNR = {res['psnr_auto']:.2f} dB")
+        res_paths = [save_panels(fig, out_dir, "Hinh6")]
+    real_path, res["real"] = _make_hinh6_real(_real_document_files(), out_dir)
+    if real_path is not None:
+        res_paths.append(real_path)
+    res["paths"] = res_paths
     return res
 
 

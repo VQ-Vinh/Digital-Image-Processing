@@ -43,7 +43,7 @@
 - Chất lượng và tốc độ được quyết định bởi các tham số interpolation, borderMode và dsize, độc lập với cách tính ma trận.
 - Nhánh nét đứt là phần đối chứng: cài đặt lại cùng quy trình bằng NumPy để kiểm chứng cơ chế bên trong.
 
-### Hình 2
+### Hình 2a–2c
 
 - Khi phóng to ×4 ảnh 128×128, INTER_LANCZOS4 cho PSNR cao nhất (26.45 dB), INTER_NEAREST thấp nhất (25.17 dB); chênh lệch 1.28 dB cho thấy nội suy bậc cao khôi phục chi tiết tốt hơn nhưng không thể tạo lại chi tiết đã mất khi thu nhỏ.
 - Khi phóng to với hệ số nguyên, INTER_AREA cho kết quả trùng INTER_NEAREST (cùng PSNR 25.17 dB) — đúng như tài liệu OpenCV mô tả, nên không dùng INTER_AREA để phóng to.
@@ -51,11 +51,11 @@
 - Khi thu nhỏ ×0.25 zone plate, độ lệch chuẩn ở vùng có tần số vượt Nyquist (lý tưởng ≈ 0) nhỏ nhất với INTER_AREA (20.1) và lớn nhất với INTER_NEAREST (90.2), tức INTER_AREA giảm vân moiré khoảng 4.5 lần nhờ lấy trung bình cả vùng pixel.
 - Các cờ còn lại chỉ lấy mẫu vài pixel lân cận nên bỏ sót phần lớn pixel nguồn: chữ mảnh bị đứt nét và vân tròn giả xuất hiện ở vùng tần số cao.
 
-### Hình 3
+### Hình 3a–3c
 
 - Tịnh tiến giữ khung 600×400 làm mất phần ảnh trượt ra ngoài: chỉ còn 70.8% ảnh gốc, phần trống được lấp bằng borderValue.
 - Xoay giữ khung làm mất góc ảnh: còn 82.0% ở 30°, 77.9% ở 45°, 66.7% ở 90°; với ảnh không vuông, góc 90° mất nhiều nhất.
-- Xoay mở rộng khung tính lại kích thước (ví dụ 45° → 708×708, diện tích gấp 2.09 lần) và cộng bù tịnh tiến vào cột cuối của ma trận; nếu quên bù tịnh tiến, ảnh bị lệch và vẫn bị cắt như ô đầu hàng thứ hai.
+- Xoay mở rộng khung tính lại kích thước (ví dụ 45° → 708×708, diện tích gấp 2.09 lần) và cộng bù tịnh tiến vào cột cuối của ma trận; nếu quên bù tịnh tiến, ảnh bị lệch và vẫn bị cắt như Hình 3b.
 - Với borderMode: CONSTANT tô màu cố định, REPLICATE kéo dài pixel biên thành vệt sọc, REFLECT/REFLECT_101 tạo ảnh phản chiếu liền mạch, WRAP lặp ảnh tuần hoàn nên có đường nối đột ngột.
 
 ### Hình 4
@@ -79,7 +79,7 @@
 - Thời gian tìm góc 2.84 ms, nắn chỉnh 2.09 ms, tổng dưới 33 ms/khung nên đủ nhanh cho video thời gian thực (30 khung/s).
 - Chữ và bảng kẻ ô sau nắn chỉnh thẳng hàng trở lại, chứng tỏ homography khử được méo phối cảnh.
 
-### Hình 7
+### Hình 7a–7b
 
 - Với nội suy bilinear, ảnh tự cài đặt và ảnh OpenCV gần như trùng nhau: PSNR 58.57–60.03 dB, tỉ lệ pixel lệch >1 mức xám chỉ 0.000–0.243%.
 - Ảnh hiệu tập trung ở biên vật thể và mép khung ảnh — nơi gradient lớn nên lệch tọa độ rất nhỏ cũng đổi giá trị pixel; vùng phẳng gần như bằng 0.

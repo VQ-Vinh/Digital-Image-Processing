@@ -12,12 +12,12 @@ Mọi hình, bảng và số liệu trong `results/` đều do code sinh ra bằ
 | File / hàm | Mục báo cáo | Hình / Bảng |
 |---|---|---|
 | `src/experiments.py::make_hinh1`, `make_bang1` | 1. Quy trình biến đổi hình học với OpenCV | Hinh1.png, Bang1 |
-| `src/transforms.py::scale`; `src/experiments.py::make_hinh2`, `make_bang2` | 2. Co giãn ảnh, khảo sát cờ nội suy | Hinh2.png, Bang2 |
-| `src/transforms.py::translate`, `rotation_matrix`, `rotate`, `expanded_size`; `make_hinh3` | 3. Tịnh tiến, xoay giữ / mở rộng khung, chế độ biên | Hinh3.png |
+| `src/transforms.py::scale`; `src/experiments.py::make_hinh2`, `make_bang2` | 2. Co giãn ảnh, khảo sát cờ nội suy | Hinh2a–2c.png, Bang2 |
+| `src/transforms.py::translate`, `rotation_matrix`, `rotate`, `expanded_size`; `make_hinh3` | 3. Tịnh tiến, xoay giữ / mở rộng khung, chế độ biên | Hinh3a–3c.png |
 | `src/transforms.py::affine_3pts`; `make_hinh4` | 4. Biến đổi affine 3 điểm | Hinh4.png |
 | `src/transforms.py::perspective_4pts`; `make_hinh5` | 5. Biến đổi phối cảnh 4 điểm | Hinh5.png |
 | `src/app_document.py` (`detect_corners_auto`, `order_corners`, `rectify`); `make_hinh6` | 6. Ứng dụng: nắn chỉnh ảnh tài liệu | Hinh6.png |
-| `reference/matrices.py`, `reference/warp_ref.py`; `compare/compare_ref_vs_cv.py` | 7. Đối chứng: tự cài đặt so với OpenCV | Hinh7.png, Bang3 |
+| `reference/matrices.py`, `reference/warp_ref.py`; `compare/compare_ref_vs_cv.py` | 7. Đối chứng: tự cài đặt so với OpenCV | Hinh7a–7b.png, Bang3 |
 | `compare/metrics.py`, `compare/benchmark.py` | Phương pháp đánh giá (PSNR, MSE, % pixel lệch, thời gian) | dùng cho Bang2, Bang3 |
 | `src/report.py` | Số liệu và nhận xét tổng hợp | `results/report_numbers.md` |
 | `src/images.py` | Dữ liệu thử | `data/*.png`, `data/doc.jpg` |
@@ -102,7 +102,7 @@ python demo/demo.py --op perspective --interp linear --compare
 python demo/demo_document.py --image data/doc.jpg --auto
 ```
 
-Tự tìm 4 góc (ngưỡng Otsu → contour lớn nhất → `approxPolyDP`; dự phòng bằng Canny), in 4 góc và ma trận H, hiện ảnh trước/sau. Với `data/doc.jpg` kết quả là trang thẳng 580×760. Bỏ `--auto` để tự click 4 góc: click trái 4 góc tờ giấy (thứ tự bất kỳ), Enter để xác nhận, `r` để chọn lại, Esc để thoát. Có thể dùng ảnh tài liệu thật, ví dụ đặt `data/doc_real1.jpg` (ảnh tên `doc_real*` cũng được thêm vào Hình 6 khi chạy `run_all.py`). Kích thước ảnh ra được ước lượng từ cạnh dài nhất của tứ giác nên tỉ lệ khung chỉ gần đúng; muốn đúng tỉ lệ A4 thì truyền `dsize` vào `rectify`.
+Tự tìm 4 góc (ngưỡng Otsu → contour lớn nhất → `approxPolyDP`; dự phòng bằng Canny), in 4 góc và ma trận H, hiện ảnh trước/sau. Với `data/doc.jpg` kết quả là trang thẳng 580×760. Bỏ `--auto` để tự click 4 góc: click trái 4 góc tờ giấy (thứ tự bất kỳ), Enter để xác nhận, `r` để chọn lại, Esc để thoát. Có thể dùng ảnh tài liệu thật, ví dụ đặt `data/doc_real1.jpg` (ảnh tên `doc_real*` được đưa vào Hình 6b khi chạy `run_all.py`). Kích thước ảnh ra được ước lượng từ cạnh dài nhất của tứ giác nên tỉ lệ khung chỉ gần đúng; muốn đúng tỉ lệ A4 thì truyền `dsize` vào `rectify`.
 
 ### Bước 4 — Notebook
 

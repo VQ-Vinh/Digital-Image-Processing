@@ -117,7 +117,7 @@ def comments_hinh3(r: dict[str, Any]) -> list[str]:
         + f"; với ảnh không vuông, góc {a_min:g}° mất nhiều nhất.",
         f"Xoay mở rộng khung tính lại kích thước (ví dụ {big:g}° → {se[big][0]}×{se[big][1]}, diện tích gấp "
         f"{se[big][0] * se[big][1] / (w * h):.2f} lần) và cộng bù tịnh tiến vào cột cuối của ma trận; nếu quên "
-        "bù tịnh tiến, ảnh bị lệch và vẫn bị cắt như ô đầu hàng thứ hai.",
+        "bù tịnh tiến, ảnh bị lệch và vẫn bị cắt như Hình 3b.",
         "Với borderMode: CONSTANT tô màu cố định, REPLICATE kéo dài pixel biên thành vệt sọc, REFLECT/"
         "REFLECT_101 tạo ảnh phản chiếu liền mạch, WRAP lặp ảnh tuần hoàn nên có đường nối đột ngột.",
     ]
@@ -268,9 +268,9 @@ def build_report(res: dict[str, Any], cmp: dict[str, Any]) -> str:
     lines += _bang3_lines(cmp)
     lines += ["", "## Nhận xét gợi ý theo từng hình", ""]
     comments = {
-        "Hình 1": comments_hinh1(), "Hình 2": comments_hinh2(res["Hinh2"]), "Hình 3": comments_hinh3(res["Hinh3"]),
+        "Hình 1": comments_hinh1(), "Hình 2a–2c": comments_hinh2(res["Hinh2"]), "Hình 3a–3c": comments_hinh3(res["Hinh3"]),
         "Hình 4": comments_hinh4(res["Hinh4"]), "Hình 5": comments_hinh5(res["Hinh5"]),
-        "Hình 6": comments_hinh6(res["Hinh6"]), "Hình 7": comments_hinh7(cmp),
+        "Hình 6": comments_hinh6(res["Hinh6"]), "Hình 7a–7b": comments_hinh7(cmp),
     }
     for name, sentences in comments.items():
         lines += [f"### {name}", "", *(f"- {s}" for s in sentences), ""]
