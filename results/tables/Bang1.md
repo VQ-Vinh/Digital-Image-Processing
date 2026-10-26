@@ -1,0 +1,14 @@
+**Bảng 1. Các hàm OpenCV dùng cho biến đổi hình học**
+
+| Hàm OpenCV | Chức năng | Tham số chính | Ý nghĩa / lưu ý |
+|---|---|---|---|
+| cv2.resize | Co giãn ảnh | src, dsize=(w, h), fx, fy, interpolation | dsize ưu tiên hơn fx, fy; nên dùng INTER_AREA khi thu nhỏ, INTER_CUBIC/LANCZOS4 khi phóng to |
+| cv2.getRotationMatrix2D | Tạo ma trận xoay 2×3 | center=(x, y), angle (độ), scale | Góc dương = ngược chiều kim đồng hồ; không tự mở rộng khung, phải tự cộng bù tịnh tiến |
+| cv2.getAffineTransform | Ma trận affine 2×3 từ 3 cặp điểm | src, dst: mảng float32 (3, 2) | Giải hệ 6 phương trình; 3 điểm không được thẳng hàng |
+| cv2.warpAffine | Áp phép affine lên ảnh | src, M (2×3), dsize, flags, borderMode, borderValue | Ánh xạ ngược dst(x, y) = src(M⁻¹[x, y, 1]ᵀ); flags = cờ nội suy \| WARP_INVERSE_MAP |
+| cv2.getPerspectiveTransform | Homography 3×3 từ 4 cặp điểm | src, dst: mảng float32 (4, 2) | Giải hệ 8 phương trình với h33 = 1; không có 3 điểm nào thẳng hàng |
+| cv2.warpPerspective | Áp phép phối cảnh lên ảnh | src, H (3×3), dsize, flags, borderMode, borderValue | Tọa độ nguồn chia cho thành phần thứ ba w; đường thẳng giữ thẳng, song song không còn |
+| cv2.transform / cv2.perspectiveTransform | Biến đổi tọa độ các điểm | pts (N, 1, 2), M hoặc H | Kiểm tra điểm đích, vẽ điểm đánh dấu; không nội suy ảnh |
+| Cờ interpolation | Chọn cách nội suy | INTER_NEAREST, INTER_LINEAR, INTER_CUBIC, INTER_AREA, INTER_LANCZOS4 | Lân cận 1, 2×2, 4×4 (a = −0.75), lấy trung bình vùng, 8×8 (Lanczos) |
+| Cờ borderMode | Ngoại suy pixel ngoài ảnh | BORDER_CONSTANT, REPLICATE, REFLECT, REFLECT_101, WRAP | Hằng số borderValue \| lặp pixel biên aaa\|abc \| phản xạ cba\|abc \| phản xạ bỏ biên cb\|abc \| cuộn vòng xyz\|abc |
+| cv2.findContours + cv2.approxPolyDP | Tìm 4 góc tài liệu (ứng dụng) | ảnh nhị phân, epsilon = 2% chu vi | Lấy contour lớn nhất xấp xỉ được bằng tứ giác |
