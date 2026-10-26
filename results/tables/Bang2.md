@@ -1,0 +1,14 @@
+**Bảng 2. Khảo sát cờ nội suy của cv2.resize (thu nhỏ ×0.25 rồi phóng ×4)**
+
+| Cờ nội suy | PSNR 512×512 (dB) | PSNR 1920×1080 (dB) | t thu nhỏ 512×512 (ms) | t phóng to 512×512 (ms) | t thu nhỏ 1920×1080 (ms) | t phóng to 1920×1080 (ms) |
+|---|---|---|---|---|---|---|
+| INTER_NEAREST | 21.36 | 25.42 | 0.009 | 0.089 | 0.064 | 0.505 |
+| INTER_LINEAR | 25.76 | 32.48 | 0.017 | 0.060 | 0.122 | 0.461 |
+| INTER_CUBIC | 25.27 | 34.34 | 0.037 | 0.142 | 0.098 | 0.615 |
+| INTER_AREA | 25.17 | 30.24 | 0.083 | 0.062 | 0.392 | 0.635 |
+| INTER_LANCZOS4 | 24.84 | 34.40 | 0.272 | 0.530 | 1.211 | 2.017 |
+| INTER_AREA ↓ + INTER_CUBIC ↑ | 26.38 | 33.63 | 0.087 | 0.145 | 0.431 | 0.757 |
+
+- Ảnh 512×512: 'camera' (skimage, xám). Ảnh 1920×1080: 'coffee' (skimage) chuyển xám rồi phóng bằng INTER_LANCZOS4 lên 1920×1080 (ảnh đã mịn hơn ảnh chụp thật nên PSNR cao hơn).
+- PSNR: thu nhỏ ×0.25 rồi phóng ×4 về kích thước gốc bằng cùng một cờ (dòng cuối: INTER_AREA khi thu nhỏ, INTER_CUBIC khi phóng to), so với ảnh gốc.
+- Thời gian: trung bình 10 lần gọi cv2.resize, bỏ 1 lần warm-up; OpenCV dùng 16 luồng.

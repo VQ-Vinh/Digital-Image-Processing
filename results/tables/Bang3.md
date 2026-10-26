@@ -1,0 +1,25 @@
+**Bảng 3. Cài đặt tham chiếu (NumPy) so với OpenCV**
+
+| Phép biến đổi | Kích thước | Nội suy | PSNR (dB) | Pixel lệch >1 (%) | t tự cài đặt (ms) | t OpenCV (ms) | Chậm hơn (lần) | Sai số ma trận max |
+|---|---|---|---|---|---|---|---|---|
+| resize ×4 | 256×256 → 1024×1024 | nearest | ∞ | 0.000 | 55.28 | 0.379 | 146 | — |
+| resize ×4 | 256×256 → 1024×1024 | bilinear | 58.62 | 0.000 | 114.68 | 0.318 | 361 | — |
+| resize ×4 | 256×256 → 1024×1024 | bicubic (a = −0.75) | 101.35 | 0.000 | 569.44 | 0.403 | 1412 | — |
+| xoay 45° (giữ khung) | 512×512 → 512×512 | nearest | ∞ | 0.000 | 14.96 | 0.214 | 70 | 0.00e+00 |
+| xoay 45° (giữ khung) | 512×512 → 512×512 | bilinear | 59.61 | 0.133 | 31.48 | 0.338 | 93 | 0.00e+00 |
+| xoay 45° (giữ khung) | 512×512 → 512×512 | bicubic (a = −0.75) | 58.95 | 0.200 | 144.87 | 0.828 | 175 | 0.00e+00 |
+| affine 3 điểm | 512×512 → 512×512 | nearest | 59.80 | 0.008 | 14.42 | 0.210 | 69 | 1.42e-14 |
+| affine 3 điểm | 512×512 → 512×512 | bilinear | 60.03 | 0.243 | 27.62 | 0.358 | 77 | 1.42e-14 |
+| affine 3 điểm | 512×512 → 512×512 | bicubic (a = −0.75) | 59.44 | 0.285 | 135.93 | 0.651 | 209 | 1.42e-14 |
+| phối cảnh 4 điểm | 512×512 → 512×512 | nearest | ∞ | 0.000 | 17.98 | 0.279 | 64 | 2.84e-14 |
+| phối cảnh 4 điểm | 512×512 → 512×512 | bilinear | 58.57 | 0.213 | 31.37 | 0.387 | 81 | 2.84e-14 |
+| phối cảnh 4 điểm | 512×512 → 512×512 | bicubic (a = −0.75) | 57.90 | 0.282 | 138.27 | 0.912 | 152 | 2.84e-14 |
+| Sai số lớn nhất \|M tự tính − M OpenCV\| (các ma trận dùng ở trên) | — | — | — | — | — | — | — | 2.84e-14 |
+| Ma trận xoay: 200 trường hợp ngẫu nhiên, sai số tương đối lớn nhất | — | — | — | — | — | — | — | 0.00e+00 |
+| Ma trận affine: 200 trường hợp ngẫu nhiên, sai số tương đối lớn nhất | — | — | — | — | — | — | — | 3.27e-16 |
+| Ma trận homography: 200 trường hợp ngẫu nhiên, sai số tương đối lớn nhất | — | — | — | — | — | — | — | 6.93e-06 |
+
+- Ảnh vào: 'camera' (skimage, xám 512×512); resize dùng ảnh camera thu nhỏ về 256×256 bằng INTER_AREA.
+- Biên: BORDER_CONSTANT (giá trị 0) cho warp, lặp pixel biên cho resize — giống mặc định OpenCV.
+- Sai số tương đối = max|M tự tính − M OpenCV| / max|M OpenCV| (homography ngẫu nhiên có phần tử tới ~10⁴ nên dùng sai số tương đối).
+- Thời gian: trung bình 10 lần, bỏ 1 lần warm-up; OpenCV dùng 16 luồng, bản tự cài đặt chạy NumPy đơn luồng.
